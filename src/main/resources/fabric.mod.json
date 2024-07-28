@@ -1,0 +1,42 @@
+{
+	"schemaVersion": 1,
+	"id": "pi3",
+	"version": "${version}",
+	"name": "Pi3",
+	"description": "A python connector helper, use python to control your minecraft!",
+	"authors": [
+		"NongDajun"
+	],
+	"contact": {
+		"homepage": "https://github.com/nongdajun/mcpi3-mod",
+		"sources": "https://github.com/nongdajun/mcpi3-mod",
+		"issues": "https://github.com/nongdajun/mcpi3-mod/issues"
+	},
+	"license": "CC0-1.0",
+	"icon": "assets/pi/icon.png",
+	"environment": "*",
+	"entrypoints": {
+		"main": [
+			"com.nongdajun.mcpi3.Pi3"
+		],
+		"client": [
+			"com.nongdajun.mcpi3.Pi3Client"
+		]
+	},
+	"mixins": [
+		"pi.mixins.json",
+		{
+			"config": "pi.client.mixins.json",
+			"environment": "client"
+		}
+	],
+	"depends": {
+		"fabricloader": ">=0.15.11",
+		"minecraft": "~1.20.4",
+		"java": ">=17",
+		"fabric-api": "*"
+	},
+	"suggests": {
+		"another-mod": "*"
+	}
+}
