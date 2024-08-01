@@ -1,15 +1,18 @@
 package com.nongdajun.mcpi3.conn;
+import com.nongdajun.mcpi3.api.Config;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
+import java.net.InetAddress;
+import java.net.InetSocketAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
 
 
 public class Connection implements Runnable {
 
-   public static final Logger LOGGER = LoggerFactory.getLogger("pi3");
+    public static final Logger LOGGER = LoggerFactory.getLogger("pi3");
 
     private String host;
     private int port;
@@ -17,23 +20,31 @@ public class Connection implements Runnable {
     private Thread thread;
     private boolean running;
 
+    private static Connection _instance;
+
     public Connection(String host, int port){
         this.host = host;
         this.port = port;
     }
 
-    public void init() {
+    public static final void init() {
+
+        if(_instance!=null){
+            return;
+        }
+
+        _instance = new Connection(Config.getHost(), Config.PORT);
 
         try {
-            server = new ServerSocket(this.port);
+            _instance.server = new ServerSocket(Config.PORT, 0, InetAddress.getByName (_instance.host));
         } catch (IOException e) {
-            LOGGER.error(String.format("Failed to create server socket, port = %d .", this.port));
+            LOGGER.error(String.format("Failed to create server socket, port = %d .", _instance.port));
             throw new RuntimeException(e);
         }
 
-        thread = new Thread(this);
-        running = true;
-        thread.start();
+        _instance.thread = new Thread(_instance);
+        _instance.running = true;
+        _instance.thread.start();
     }
 
     public void run() {
@@ -41,8 +52,8 @@ public class Connection implements Runnable {
         while (running) {
             try {
                 Socket socket = server.accept();
-                new Thread(new CommandDispatcher(socket)).start();
-                LOGGER.info(String.format("* New connection from %s ", socket.getRemoteSocketAddress().toString()));
+                new Thread(new MsgDispatcher(socket)).start();
+                LOGGER.info(String.format("* New connection from %s *", socket.getRemoteSocketAddress().toString()));
             } catch (IOException e) {
                 LOGGER.error("Failed to accept connection.");
                 throw new RuntimeException(e);

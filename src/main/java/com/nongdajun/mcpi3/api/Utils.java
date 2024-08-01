@@ -2,6 +2,7 @@ package com.nongdajun.mcpi3.api;
 
 import net.minecraft.block.Block;
 import net.minecraft.entity.Entity;
+import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.text.Text;
 
@@ -38,8 +39,8 @@ public final class Utils {
         );
     }
 
-    public static String formatPlayerInfo(ServerPlayerEntity player){
-        return String.format("%d,%s,%s,%s,%s,%s,%s"
+    public static String formatPlayerInfo(PlayerEntity player){
+        return String.format("%d,%s,%s,%s,%s,%s,%s,%s"
                 ,player.getId()
                 ,Utils.Text2String(player.getName())
                 ,player.getX()
@@ -47,6 +48,7 @@ public final class Utils {
                 ,player.getZ()
                 ,(player.isMainPlayer()?"1":"0")
                 ,(player.isAlive()?"1":"0")
+                ,player.getHealth()
         );
     }
 

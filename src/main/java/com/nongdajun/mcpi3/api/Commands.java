@@ -2,65 +2,138 @@ package com.nongdajun.mcpi3.api;
 
 public final class Commands {
 
-    public final class Option {
-        public static final int PING = 0x01;
-        public static final int HELLO = 0x02;
-        public static final int READY = 0x03;
-        public static final int ECHO = 0x04;
-        public static final int ATTACH_PLAYER = 0x05;
-        public static final int CURRENT_PLAYER = 0x06;
-        public static final int DEBUG = 0xdb;
+    public enum Common {
+        PING,
+        GET_API_VERSION,
+        IS_SERVER_READY,
+        IS_CLIENT_READY,
+        SET_ECHO_MODE,
+        DEBUG
     }
 
-    public final class World {
-        public static final int GET_BLOCK = 0x101;
-        public static final int SET_BLOCK = 0x102;
-        public static final int GET_BLOCK_WITH_DATA = 0x103;
-        public static final int GET_BLOCKS = 0x104;
-        public static final int SET_BLOCKS = 0x105;
-        public static final int GET_PLAYERS = 0x106;
-        public static final int GET_BORDER = 0x107;
-        public static final int GET_ENTITY_TYPES = 0x108;
-        public static final int GET_ENTITY = 0x109;
-        public static final int GET_ENTITY_BY_TYPE = 0x10a;
-        public static final int SPAWN_ENTITY = 0x10b;
-        public static final int REMOVE_ENTITY = 0x10c;
-        public static final int REMOVE_ENTITY_BY_TYPE = 0x10d;
-        public static final int GET_BLOCK_TYPES = 0x10e;
+    public enum Server {
+        GET_PLAYERS,
+        ATTACH_PLAYER,
+        CURRENT_PLAYER,
+        GET_WORLDS,
+        ATTACH_WORLD,
+        CURRENT_WORLD,
+        KILL_PLAYER,
+        GET_GAME_MODE,
+        GET_GAME_VERSION,
+
+        __WORLD_COMMANDS_START__,
+        WORLD_GET_BLOCK,
+        WORLD_SET_BLOCK,
+        WORLD_GET_BLOCK_WITH_DATA,
+        WORLD_GET_BLOCKS,
+        WORLD_SET_BLOCKS,
+        WORLD_GET_PLAYERS,
+        WORLD_GET_BORDER,
+        WORLD_GET_ENTITY_TYPES,
+        WORLD_GET_ENTITY,
+        WORLD_GET_ENTITY_BY_TYPE,
+        WORLD_SPAWN_ENTITY,
+        WORLD_REMOVE_ENTITY,
+        WORLD_REMOVE_ENTITY_BY_TYPE,
+        WORLD_GET_BLOCK_TYPES,
+        WORLD_GET_INFO,
+        WORLD_GET_IS_RAINING,
+        WORLD_GET_IS_DAY,
+        WORLD_GET_TIME,
+        __WORLD_COMMANDS_END__,
+
+        __PLAYER_COMMANDS_START__,
+        PLAYER_GET_NAME,
+        PLAYER_GET_POS,
+        PLAYER_SET_POS,
+        PLAYER_GET_SPAWN_POS,
+        PLAYER_SET_SPAWN_POS,
+        PLAYER_GET_LAST_DEAD_POS,
+        PLAYER_GET_HEALTH,
+        PLAYER_SET_HEALTH,
+        PLAYER_GET_FOOD_LEVEL,
+        PLAYER_SET_FOOD_LEVEL,
+        PLAYER_GET_AIR,
+        PLAYER_SET_AIR,
+        PLAYER_GET_MAIN_INVENTORY,
+        PLAYER_GET_ARMOR_INVENTORY,
+        PLAYER_GET_MAIN_HAND,
+        PLAYER_GET_OFF_HAND,
+        PLAYER_SET_MAIN_HAND,
+        PLAYER_SET_OFF_HAND,
+        PLAYER_GET_HOT_BAR_ITEMS,
+        PLAYER_PICK_ITEM,
+        PLAYER_DROP_ITEM,
+        PLAYER_DESTROY_ITEM,
+        PLAYER_SET_INVENTORY_SLOT,
+        __PLAYER_COMMANDS_END__,
+
+        SEND_MESSAGE,
+        EXECUTE_COMMAND,
     }
 
-    public final class Player {
-        public static final int GET_TILE = 0x201;
-        public static final int SET_TILE = 0x202;
-        public static final int GET_POS = 0x203;
-        public static final int SET_POS = 0x204;
-        public static final int GET_ENTITY_BY_TYPE = 0x206;
-        public static final int REMOVE_ENTITY_BY_TYPE = 0x207;
-        public static final int CLEAR_EVENTS = 0x208;
+    public enum Client {
+        PLAYER_MOVE_FORWARD,
+        PLAYER_MOVE_BACKWARD,
+        PLAYER_MOVE_LEFT,
+        PLAYER_MOVE_RIGHT,
+        PLAYER_MOVE_TO,
+        PLAYER_JUMP,
+        PLAYER_ATTACK,
+        PLAYER_ATTACK_ENTITY,
+        PLAYER_ATTACK_BLOCK,
+        PLAYER_LOOKING_AT,
+        PLAYER_SWING_HAND,
+        PLAYER_USE_ITEM,
+
+        PLAYER_GET_NAME,
+        PLAYER_GET_POS,
+        PLAYER_SET_POS,
+        PLAYER_GET_SPAWN_POS,
+        PLAYER_SET_SPAWN_POS,
+        PLAYER_GET_LAST_DEAD_POS,
+        PLAYER_GET_HEALTH,
+        PLAYER_GET_AIR,
+        PLAYER_GET_FOOD_LEVEL,
+        PLAYER_GET_MAIN_INVENTORY,
+        PLAYER_GET_ARMOR_INVENTORY,
+        PLAYER_GET_MAIN_HAND,
+        PLAYER_GET_OFF_HAND,
+        PLAYER_SET_MAIN_HAND,
+        PLAYER_SET_OFF_HAND,
+        PLAYER_GET_HOT_BAR_ITEMS,
+        PLAYER_PICK_ITEM,
+        PLAYER_DROP_ITEM,
+        PLAYER_DESTROY_ITEM,
+
+        PLAYER_CHANGE_LOOK_DIRECTION,
+
+        WORLD_GET_SPAWN_POS,
+        WORLD_SET_SPAWN_POS,
+
+        GET_GAME_MODE,
+        GET_GAME_VERSION,
+        GET_CLIENT_VERSION,
     }
 
-    public final class Entity {
-        public static final int GET_TILE = 0x301;
-        public static final int SET_TILE = 0x302;
-        public static final int GET_POS = 0x303;
-        public static final int SET_POS = 0x304;
-        public static final int CLEAR_EVENTS = 0x305;
+    private static Common[] _CommonSet = Common.values();
+    private static Server[] _ServerSet = Server.values();
+    private static Client[] _ClientSet = Client.values();
+
+    public static final int CommonCommandMask = 0x1000;
+    public static final int ServerCommandMask = 0x2000;
+    public static final int ClientCommandMask = 0x3000;
+
+    public static Common codeToCommon(int code) {
+        return _CommonSet[code&0xfff];
     }
 
-    public final class Event {
-        public static final int CLEAR = 0x401;
-        public static final int BLOCK_HITS = 0x402;
+    public static Server codeToServer(int code) {
+        return _ServerSet[code&0xfff];
     }
 
-    public final class Misc {
-        public static final int CHAT = 0x501;
-        public static final int COMMAND = 0x502;
-    }
-
-    public final class Camera {
-        public static final int MODE_NORMAL = 0x601;
-        public static final int MODE_FIXED = 0x602;
-        public static final int MODE_FOLLOW = 0x603;
-        public static final int SET_POS = 0x604;
+    public static Client codeToClient(int code) {
+        return _ClientSet[code&0xfff];
     }
 }
