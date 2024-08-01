@@ -42,35 +42,40 @@ public class ClientHandler implements ICommandHandler {
 
             case PLAYER_MOVE_FORWARD:{
                 var d = args.getFloat();
-                var dr = client.player.getMovementDirection().getUnitVector();
-                client.player.move(MovementType.PLAYER, new Vec3d(dr.mul(d)));
+                if(d<=0.0f) d = 1.0f;
+                client.player.updateVelocity(0.3f, new Vec3d(0, 0, d));
+                client.player.move(MovementType.SELF, client.player.getVelocity());
                 break;
             }
 
             case PLAYER_MOVE_BACKWARD:{
                 var d = args.getFloat();
-                var dr = client.player.getMovementDirection().getUnitVector();
-                client.player.move(MovementType.PLAYER, new Vec3d(dr.mul(-d)));
+                if(d<=0.0f) d = 1.0f;
+                client.player.updateVelocity(0.3f, new Vec3d(0, 0, -d));
+                client.player.move(MovementType.SELF, client.player.getVelocity());
                 break;
             }
 
             case PLAYER_MOVE_LEFT:{
                 var d = args.getFloat();
-                var dr = client.player.getMovementDirection().rotateYCounterclockwise().getUnitVector();
-                client.player.move(MovementType.PLAYER, new Vec3d(dr.mul(d)));
+                if(d<=0.0f) d = 1.0f;
+                client.player.updateVelocity(0.3f, new Vec3d(d, 0, 0));
+                client.player.move(MovementType.SELF, client.player.getVelocity());
                 break;
             }
 
             case PLAYER_MOVE_RIGHT:{
                 var d = args.getFloat();
-                var dr = client.player.getMovementDirection().rotateYClockwise().getUnitVector();
-                client.player.move(MovementType.PLAYER, new Vec3d(dr.mul(d)));
+                if(d<=0.0f) d = 1.0f;
+                client.player.updateVelocity(0.3f, new Vec3d(-d, 0, 0));
+                client.player.move(MovementType.SELF, client.player.getVelocity());
                 break;
             }
 
             case PLAYER_MOVE_TO:{
                 var pos = new Vec3d(args.getFloat(), args.getFloat(), args.getFloat());
-                client.player.move(MovementType.PLAYER, pos);
+                client.player.updateVelocity(0.3f, pos);
+                client.player.move(MovementType.PLAYER, client.player.getVelocity());
                 break;
             }
 
