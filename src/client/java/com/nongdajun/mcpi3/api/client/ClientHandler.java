@@ -4,10 +4,14 @@ import com.nongdajun.mcpi3.api.Commands;
 import com.nongdajun.mcpi3.api.Constants;
 import com.nongdajun.mcpi3.api.Utils;
 import com.nongdajun.mcpi3.api.handlers.ICommandHandler;
+import net.minecraft.entity.Entity;
 import net.minecraft.entity.MovementType;
 import net.minecraft.item.ItemStack;
+import net.minecraft.util.ActionResult;
 import net.minecraft.util.Hand;
 import net.minecraft.util.collection.DefaultedList;
+import net.minecraft.util.hit.BlockHitResult;
+import net.minecraft.util.hit.EntityHitResult;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.*;
 import org.jetbrains.annotations.NotNull;
@@ -92,20 +96,29 @@ public class ClientHandler implements ICommandHandler {
                 boolean ret = false;
                 switch (target.getType()){
                     case BLOCK:
-                        var pos = BlockPos.ofFloored(target.getPos());
-                        //client.player.swingHand(Hand.MAIN_HAND);
-                        ret = client.interactionManager.breakBlock(pos);
-                        if(!ret){
-                            ret = client.interactionManager.attackBlock(pos, Direction.UP);
-                        }
-                        break;
+						BlockHitResult blockHitResult = (BlockHitResult)client.crosshairTarget;
+						BlockPos blockPos = blockHitResult.getBlockPos();
+						if (!client.world.getBlockState(blockPos).isAir()) {
+							client.interactionManager.attackBlock(blockPos, blockHitResult.getSide());
+							if (client.world.getBlockState(blockPos).isAir()) {
+								ret = true;
+							}
+							break;
+						}
                     case ENTITY:
-                        if(client.targetedEntity.isAttackable()) {
-                            client.interactionManager.attackEntity(client.player, client.targetedEntity);
-                            ret = true;
-                        }
+                        client.interactionManager.attackEntity(client.player, client.targetedEntity);
+                        ret = true;
                         break;
-                }
+ 					case MISS:
+						if (client.interactionManager.hasLimitedAttackSpeed()) {
+							client.attackCooldown = 10;
+						}
+
+                        client.player.resetLastAttackedTicks();
+               }
+
+                client.player.swingHand(Hand.MAIN_HAND);
+
                 if(ret){
                     return Constants.OK;
                 }
@@ -155,12 +168,74 @@ public class ClientHandler implements ICommandHandler {
             }
 
             case PLAYER_USE_ITEM:{
-                var ret = client.player.getMainHandStack().use(client.world, client.player, Hand.MAIN_HAND).getResult();
-                if(ret.shouldSwingHand()){
-                    client.player.swingHand(Hand.MAIN_HAND);
-                }
-                if(ret.isAccepted()){
-                    return Constants.OK;
+                if (!client.interactionManager.isBreakingBlock()) {
+                    if (!client.player.isRiding()) {
+                        if (client.crosshairTarget == null) {
+                            LOGGER.warn("Null returned as 'hitResult', this shouldn't happen!");
+                        }
+
+                        for (Hand hand : Hand.values()) {
+                            ItemStack itemStack = client.player.getStackInHand(hand);
+                            if (!itemStack.isItemEnabled(client.world.getEnabledFeatures())) {
+                                break;
+                            }
+
+                            if (client.crosshairTarget != null) {
+                                switch (client.crosshairTarget.getType()) {
+                                    case ENTITY:
+                                        EntityHitResult entityHitResult = (EntityHitResult)client.crosshairTarget;
+                                        Entity entity = entityHitResult.getEntity();
+                                        if (!client.world.getWorldBorder().contains(entity.getBlockPos())) {
+                                            break;
+                                        }
+
+                                        ActionResult actionResult = client.interactionManager.interactEntityAtLocation(client.player, entity, entityHitResult, hand);
+                                        if (!actionResult.isAccepted()) {
+                                            actionResult = client.interactionManager.interactEntity(client.player, entity, hand);
+                                        }
+
+                                        if (actionResult.isAccepted()) {
+                                            if (actionResult.shouldSwingHand()) {
+                                                client.player.swingHand(hand);
+                                            }
+
+                                            break;
+                                        }
+                                        break;
+                                    case BLOCK:
+                                        BlockHitResult blockHitResult = (BlockHitResult)client.crosshairTarget;
+                                        int i = itemStack.getCount();
+                                        ActionResult actionResult2 = client.interactionManager.interactBlock(client.player, hand, blockHitResult);
+                                        if (actionResult2.isAccepted()) {
+                                            if (actionResult2.shouldSwingHand()) {
+                                                client.player.swingHand(hand);
+                                                if (!itemStack.isEmpty() && (itemStack.getCount() != i || client.interactionManager.hasCreativeInventory())) {
+                                                    client.gameRenderer.firstPersonRenderer.resetEquipProgress(hand);
+                                                }
+                                            }
+
+                                            break;
+                                        }
+
+                                        if (actionResult2 == ActionResult.FAIL) {
+                                            break;
+                                        }
+                                }
+                            }
+
+                            if (!itemStack.isEmpty()) {
+                                ActionResult actionResult3 = client.interactionManager.interactItem(client.player, hand);
+                                if (actionResult3.isAccepted()) {
+                                    if (actionResult3.shouldSwingHand()) {
+                                        client.player.swingHand(hand);
+                                    }
+
+                                    client.gameRenderer.firstPersonRenderer.resetEquipProgress(hand);
+                                    break;
+                                }
+                            }
+                        }
+                    }
                 }
                 break;
             }
@@ -323,13 +398,7 @@ public class ClientHandler implements ICommandHandler {
             }
 
             case GET_GAME_MODE:{
-                var mode = client.getServer().getForcedGameMode();
-                if(mode == null){
-                    return null;
-                }
-                else{
-                    return mode.getName().getBytes();
-                }
+                return client.interactionManager.getCurrentGameMode().getName().getBytes();
             }
 
             case GET_GAME_VERSION:{
