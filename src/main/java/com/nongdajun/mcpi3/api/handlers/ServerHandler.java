@@ -512,7 +512,7 @@ public class ServerHandler extends CommandHandler {
                 return String.join("|", ret).getBytes();
             }
 
-            case PLAYER_PICK_ITEM: {
+            case PLAYER_SELECT_INVENTORY_SLOT: {
                 int index = args.getShort();
                 var inv = Globals.player.getInventory();
                 if(index==inv.selectedSlot){

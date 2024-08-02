@@ -3,7 +3,7 @@
 	"package": "com.nongdajun.mcpi3.mixin.client",
 	"compatibilityLevel": "JAVA_17",
 	"client": [
-		"Pi3ClientMixin"
+		"Pi3ClientMixin", "MinecraftClientAccessor", "Pi3ClientPlayerMixin"
 	],
 	"injectors": {
 		"defaultRequire": 1

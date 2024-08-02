@@ -4,14 +4,14 @@ import com.nongdajun.mcpi3.api.Commands;
 import com.nongdajun.mcpi3.api.Constants;
 import com.nongdajun.mcpi3.api.Utils;
 import com.nongdajun.mcpi3.api.handlers.ICommandHandler;
-import net.minecraft.entity.Entity;
+import com.nongdajun.mcpi3.mixin.client.MinecraftClientAccessor;
+import net.minecraft.client.gui.screen.Screen;
+import net.minecraft.client.option.Perspective;
 import net.minecraft.entity.MovementType;
 import net.minecraft.item.ItemStack;
-import net.minecraft.util.ActionResult;
+import net.minecraft.network.packet.c2s.play.PlayerActionC2SPacket;
 import net.minecraft.util.Hand;
 import net.minecraft.util.collection.DefaultedList;
-import net.minecraft.util.hit.BlockHitResult;
-import net.minecraft.util.hit.EntityHitResult;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.*;
 import org.jetbrains.annotations.NotNull;
@@ -26,10 +26,14 @@ public class ClientHandler implements ICommandHandler {
 
     public static final Logger LOGGER = LoggerFactory.getLogger("pi3_client_handler");
 
+    public boolean player_is_sneaking = false;
+
     @Override
     public byte[] execute(int cmd_code, ByteBuffer args) {
 
         var client = ClientGlobals.client;
+        var client_accessor = (MinecraftClientAccessor) client;
+
         if(client==null){
             return Constants.ERR_CLIENT_NOT_READY;
         }
@@ -47,7 +51,8 @@ public class ClientHandler implements ICommandHandler {
             case PLAYER_MOVE_FORWARD:{
                 var d = args.getFloat();
                 if(d<=0.0f) d = 1.0f;
-                client.player.updateVelocity(0.3f, new Vec3d(0, 0, d));
+                var sp = client.player.getMovementSpeed();
+                client.player.updateVelocity(sp*d, new Vec3d(0, 0, 1));
                 client.player.move(MovementType.SELF, client.player.getVelocity());
                 break;
             }
@@ -55,7 +60,8 @@ public class ClientHandler implements ICommandHandler {
             case PLAYER_MOVE_BACKWARD:{
                 var d = args.getFloat();
                 if(d<=0.0f) d = 1.0f;
-                client.player.updateVelocity(0.3f, new Vec3d(0, 0, -d));
+                var sp = client.player.getMovementSpeed();
+                client.player.updateVelocity(sp*d, new Vec3d(0, 0, -1));
                 client.player.move(MovementType.SELF, client.player.getVelocity());
                 break;
             }
@@ -63,7 +69,8 @@ public class ClientHandler implements ICommandHandler {
             case PLAYER_MOVE_LEFT:{
                 var d = args.getFloat();
                 if(d<=0.0f) d = 1.0f;
-                client.player.updateVelocity(0.3f, new Vec3d(d, 0, 0));
+                var sp = client.player.getMovementSpeed();
+                client.player.updateVelocity(sp*d, new Vec3d(1, 0, 0));
                 client.player.move(MovementType.SELF, client.player.getVelocity());
                 break;
             }
@@ -71,14 +78,18 @@ public class ClientHandler implements ICommandHandler {
             case PLAYER_MOVE_RIGHT:{
                 var d = args.getFloat();
                 if(d<=0.0f) d = 1.0f;
-                client.player.updateVelocity(0.3f, new Vec3d(-d, 0, 0));
+                var sp = client.player.getMovementSpeed();
+                client.player.updateVelocity(sp*d, new Vec3d(-1, 0, 0));
                 client.player.move(MovementType.SELF, client.player.getVelocity());
                 break;
             }
 
             case PLAYER_MOVE_TO:{
                 var pos = new Vec3d(args.getFloat(), args.getFloat(), args.getFloat());
-                client.player.updateVelocity(0.3f, pos);
+                var d = args.getFloat();
+                if(d<=0.0f) d = 1.0f;
+                var sp = client.player.getMovementSpeed();
+                client.player.updateVelocity(sp*d, pos);
                 client.player.move(MovementType.PLAYER, client.player.getVelocity());
                 break;
             }
@@ -89,37 +100,10 @@ public class ClientHandler implements ICommandHandler {
             }
 
             case PLAYER_ATTACK: {
-                var target = client.crosshairTarget;
-                if(target==null){
-                    return Constants.FAILED;
+                if(args.get()!=0){
+                    client.attackCooldown = 0;
                 }
-                boolean ret = false;
-                switch (target.getType()){
-                    case BLOCK:
-						BlockHitResult blockHitResult = (BlockHitResult)client.crosshairTarget;
-						BlockPos blockPos = blockHitResult.getBlockPos();
-						if (!client.world.getBlockState(blockPos).isAir()) {
-							client.interactionManager.attackBlock(blockPos, blockHitResult.getSide());
-							if (client.world.getBlockState(blockPos).isAir()) {
-								ret = true;
-							}
-							break;
-						}
-                    case ENTITY:
-                        client.interactionManager.attackEntity(client.player, client.targetedEntity);
-                        ret = true;
-                        break;
- 					case MISS:
-						if (client.interactionManager.hasLimitedAttackSpeed()) {
-							client.attackCooldown = 10;
-						}
-
-                        client.player.resetLastAttackedTicks();
-               }
-
-                client.player.swingHand(Hand.MAIN_HAND);
-
-                if(ret){
+                if(client_accessor.doAttack()){
                     return Constants.OK;
                 }
                 else{
@@ -168,75 +152,27 @@ public class ClientHandler implements ICommandHandler {
             }
 
             case PLAYER_USE_ITEM:{
-                if (!client.interactionManager.isBreakingBlock()) {
-                    if (!client.player.isRiding()) {
-                        if (client.crosshairTarget == null) {
-                            LOGGER.warn("Null returned as 'hitResult', this shouldn't happen!");
-                        }
+                client_accessor.doItemUse();
+                break;
+            }
 
-                        for (Hand hand : Hand.values()) {
-                            ItemStack itemStack = client.player.getStackInHand(hand);
-                            if (!itemStack.isItemEnabled(client.world.getEnabledFeatures())) {
-                                break;
-                            }
+            case PLAYER_PICK_ITEM:{
+                client_accessor.doItemPick();
+                break;
+            }
 
-                            if (client.crosshairTarget != null) {
-                                switch (client.crosshairTarget.getType()) {
-                                    case ENTITY:
-                                        EntityHitResult entityHitResult = (EntityHitResult)client.crosshairTarget;
-                                        Entity entity = entityHitResult.getEntity();
-                                        if (!client.world.getWorldBorder().contains(entity.getBlockPos())) {
-                                            break;
-                                        }
+            case PLAYER_SWAP_HANDS:{
+                if (!client.player.isSpectator()) {
+                    client.getNetworkHandler()
+                        .sendPacket(
+                            new PlayerActionC2SPacket(net.minecraft.network.packet.c2s.play.PlayerActionC2SPacket.Action.SWAP_ITEM_WITH_OFFHAND, BlockPos.ORIGIN, Direction.DOWN)
+                        );
+			    }
+                break;
+            }
 
-                                        ActionResult actionResult = client.interactionManager.interactEntityAtLocation(client.player, entity, entityHitResult, hand);
-                                        if (!actionResult.isAccepted()) {
-                                            actionResult = client.interactionManager.interactEntity(client.player, entity, hand);
-                                        }
-
-                                        if (actionResult.isAccepted()) {
-                                            if (actionResult.shouldSwingHand()) {
-                                                client.player.swingHand(hand);
-                                            }
-
-                                            break;
-                                        }
-                                        break;
-                                    case BLOCK:
-                                        BlockHitResult blockHitResult = (BlockHitResult)client.crosshairTarget;
-                                        int i = itemStack.getCount();
-                                        ActionResult actionResult2 = client.interactionManager.interactBlock(client.player, hand, blockHitResult);
-                                        if (actionResult2.isAccepted()) {
-                                            if (actionResult2.shouldSwingHand()) {
-                                                client.player.swingHand(hand);
-                                                if (!itemStack.isEmpty() && (itemStack.getCount() != i || client.interactionManager.hasCreativeInventory())) {
-                                                    client.gameRenderer.firstPersonRenderer.resetEquipProgress(hand);
-                                                }
-                                            }
-
-                                            break;
-                                        }
-
-                                        if (actionResult2 == ActionResult.FAIL) {
-                                            break;
-                                        }
-                                }
-                            }
-
-                            if (!itemStack.isEmpty()) {
-                                ActionResult actionResult3 = client.interactionManager.interactItem(client.player, hand);
-                                if (actionResult3.isAccepted()) {
-                                    if (actionResult3.shouldSwingHand()) {
-                                        client.player.swingHand(hand);
-                                    }
-
-                                    client.gameRenderer.firstPersonRenderer.resetEquipProgress(hand);
-                                    break;
-                                }
-                            }
-                        }
-                    }
-                }
+            case PLAYER_SET_SNEAK:{
+                this.player_is_sneaking = (args.get()!=0);
                 break;
             }
 
@@ -328,16 +264,6 @@ public class ClientHandler implements ICommandHandler {
                 return String.format("%s,%d", itemStk.getItem(), itemStk.getCount()).getBytes();
             }
 
-            case PLAYER_SET_MAIN_HAND: {
-                player_setHandItem(Hand.MAIN_HAND, Utils.readArgString(args));
-                break;
-            }
-
-            case PLAYER_SET_OFF_HAND: {
-                player_setHandItem(Hand.OFF_HAND, Utils.readArgString(args));
-                break;
-            }
-
             case PLAYER_GET_HOT_BAR_ITEMS: {
                 var inv = client.player.getInventory();
                 ArrayList<String> ret = new ArrayList<>();
@@ -353,10 +279,10 @@ public class ClientHandler implements ICommandHandler {
                 return String.join("|", ret).getBytes();
             }
 
-            case PLAYER_PICK_ITEM: {
+            case PLAYER_SELECT_INVENTORY_SLOT: {
                 int index = args.getShort();
                 var inv = client.player.getInventory();
-                if(index==inv.selectedSlot){
+                if(index == inv.selectedSlot){
                     return Constants.OK;
                 }
                 var stk = inv.getStack(index);
@@ -368,8 +294,16 @@ public class ClientHandler implements ICommandHandler {
             }
 
             case PLAYER_DROP_ITEM: {
-                boolean all = args.get() != 0;
-                if(client.player.dropSelectedItem(all)){
+                byte a = args.get();
+                boolean all;
+                if(a==0xF){
+                    all = Screen.hasControlDown();
+                }
+                else{
+                    all = a!=0;
+                }
+                if(client.player.isSpectator()==false && client.player.dropSelectedItem(all)){
+                    client.player.swingHand(Hand.MAIN_HAND);
                     return Constants.OK;
                 }
                 break;
@@ -394,6 +328,20 @@ public class ClientHandler implements ICommandHandler {
                 var dx = args.getFloat();
                 var dy = args.getFloat();
                 client.player.changeLookDirection(dx/360.0*2400.0,dy/360.0*2400.0);
+                break;
+            }
+
+            case PLAYER_CHANGE_PERSPECTIVE:{
+                var isFirst = args.get()!=0;
+                Perspective perspective = client.options.getPerspective();
+                if(isFirst == perspective.isFirstPerson()){
+                    break;
+                }
+    			client.options.setPerspective(client.options.getPerspective().next());
+                if (perspective.isFirstPerson() != client.options.getPerspective().isFirstPerson()) {
+                    client.gameRenderer.onCameraEntitySet(client.options.getPerspective().isFirstPerson() ? client.getCameraEntity() : null);
+                }
+    			client.worldRenderer.scheduleTerrainUpdate();
                 break;
             }
 
@@ -434,26 +382,4 @@ public class ClientHandler implements ICommandHandler {
         }
         return String.join("|", ret).getBytes();
     }
-
-    private void player_setHandItem(Hand hand, String item_name){
-        if(item_name==null || item_name.isEmpty()){
-            return;
-        }
-        var inv = ClientGlobals.client.player.getInventory();
-        var selStack = inv.getStack(inv.selectedSlot);
-        if(item_name.equals(selStack.getItem().toString())) {
-            return;
-        }
-        for(var slot: ClientGlobals.client.player.playerScreenHandler.slots) {
-            if (slot.hasStack() && slot.isEnabled() && item_name.equals(slot.getStack().getItem().toString())) {
-                ItemStack itemStack = slot.takeStack(1);
-                if(itemStack!=null && !itemStack.isEmpty()) {
-                    inv.setStack(slot.getIndex(), selStack);
-                    ClientGlobals.client.player.setStackInHand(hand, itemStack);
-                    return;
-                }
-            }
-        }
-     }
-
 }
