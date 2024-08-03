@@ -23,4 +23,6 @@ public class Constants {
     public static final byte[] Y = "Y".getBytes();
     public static final byte[] N = "N".getBytes();
 
+    public static final byte[] EMPTY = "".getBytes();
+
 }

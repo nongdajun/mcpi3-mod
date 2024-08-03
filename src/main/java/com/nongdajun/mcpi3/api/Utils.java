@@ -1,12 +1,18 @@
 package com.nongdajun.mcpi3.api;
 
 import net.minecraft.block.Block;
+import net.minecraft.block.BlockState;
 import net.minecraft.entity.Entity;
+import net.minecraft.entity.EntityType;
 import net.minecraft.entity.player.PlayerEntity;
+import net.minecraft.registry.Registry;
+import net.minecraft.registry.RegistryKey;
+import net.minecraft.registry.RegistryKeys;
 import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.text.Text;
 
 import java.nio.ByteBuffer;
+import java.util.ArrayList;
 
 public final class Utils {
 
@@ -52,13 +58,15 @@ public final class Utils {
         );
     }
 
-    public static String formatBlockInfo(Block block){
-        var s = block.getLootTableId().getPath();
-        if(s.length()>7) {
-            return s.substring(7);
-        }
-        else{
-            return "empty";
-        }
+    public static String formatBlockInfo(BlockState blockState){
+        return blockState.getRegistryEntry().getKey().get().getValue().getPath();
     }
+
+    public static String formatRegEntrySetInfo(Registry<?> reg) {
+        ArrayList<String> ret = new ArrayList<>();
+        for (var b : reg.getEntrySet()) {
+            ret.add(b.getKey().getValue().getPath());
+        }
+        return String.join("|", ret);
+	}
 }

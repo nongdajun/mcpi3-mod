@@ -7,10 +7,16 @@ import com.nongdajun.mcpi3.api.handlers.ICommandHandler;
 import com.nongdajun.mcpi3.mixin.client.MinecraftClientAccessor;
 import net.minecraft.client.gui.screen.Screen;
 import net.minecraft.client.option.Perspective;
+import net.minecraft.entity.Entity;
+import net.minecraft.entity.EntityType;
 import net.minecraft.entity.MovementType;
 import net.minecraft.item.ItemStack;
 import net.minecraft.network.packet.c2s.play.PlayerActionC2SPacket;
+import net.minecraft.registry.Registries;
+import net.minecraft.registry.RegistryKeys;
+import net.minecraft.text.Text;
 import net.minecraft.util.Hand;
+import net.minecraft.util.Identifier;
 import net.minecraft.util.collection.DefaultedList;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.*;
@@ -21,6 +27,7 @@ import org.slf4j.LoggerFactory;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.util.ArrayList;
+import java.util.Optional;
 
 public class ClientHandler implements ICommandHandler {
 
@@ -100,15 +107,9 @@ public class ClientHandler implements ICommandHandler {
             }
 
             case PLAYER_ATTACK: {
-                if(args.get()!=0){
-                    client.attackCooldown = 0;
-                }
-                if(client_accessor.doAttack()){
-                    return Constants.OK;
-                }
-                else{
-                    return Constants.FAILED;
-                }
+                client.attackCooldown = 0;
+                client_accessor._doAttack();
+                break;
             }
 
             case PLAYER_ATTACK_ENTITY: {
@@ -152,12 +153,12 @@ public class ClientHandler implements ICommandHandler {
             }
 
             case PLAYER_USE_ITEM:{
-                client_accessor.doItemUse();
+                client_accessor._doItemUse();
                 break;
             }
 
             case PLAYER_PICK_ITEM:{
-                client_accessor.doItemPick();
+                client_accessor._doItemPick();
                 break;
             }
 
@@ -343,6 +344,154 @@ public class ClientHandler implements ICommandHandler {
                 }
     			client.worldRenderer.scheduleTerrainUpdate();
                 break;
+            }
+
+            case GET_WORLDS:{
+                ArrayList<String> ret = new ArrayList<>();
+                for (var w: client.getServer().getWorldRegistryKeys()) {
+                    ret.add(w.getValue().getPath());
+                }
+                return String.join("|", ret).getBytes();
+            }
+
+            case WORLD_GET_NAME:{
+                if(client.world!=null) {
+                    return client.world.getRegistryKey().getValue().getPath().getBytes();
+                }
+            }
+
+            case WORLD_GET_BLOCK: {
+                var block_state = client.world.getBlockState(new BlockPos(args.getInt(), args.getInt(), args.getInt()));
+                if(block_state==null){
+                    return null;
+                }
+                return Utils.formatBlockInfo(block_state).getBytes();
+            }
+
+            case WORLD_GET_BLOCK_WITH_DATA: {
+                var block = client.world.getBlockState(new BlockPos(args.getInt(), args.getInt(), args.getInt()));
+                if(block==null){
+                    return null;
+                }
+                return block.toString().getBytes();
+            }
+
+            case WORLD_GET_BLOCKS: {
+                var pos0 = new BlockPos(args.getInt(), args.getInt(), args.getInt());
+                var pos1 = new BlockPos(args.getInt(), args.getInt(), args.getInt());
+                var blocks = client.world.getStatesInBoxIfLoaded(Box.enclosing(pos0, pos1));
+                if(blocks==null){
+                    return null;
+                }
+                ArrayList<String> ret = new ArrayList<>();
+                for(var bs: blocks.toList()) {
+                    var block = bs.getBlock();
+                    ret.add(bs.getRegistryEntry().getKey().get().getValue().getPath());
+                }
+                return String.join("|", ret).getBytes();
+            }
+
+            case WORLD_GET_PLAYERS: {
+                ArrayList<String> ret = new ArrayList<>();
+                for (var player : client.world.getPlayers()) {
+                    ret.add(Utils.formatPlayerInfo(player));
+                }
+                return String.join("|", ret).getBytes();
+            }
+
+            case WORLD_GET_BORDER: {
+                var bdr = client.world.getWorldBorder();
+                return String.format("%s,%s,%s,%s,%s,%s,%s,%s",
+                        bdr.getCenterX(),
+                        bdr.getCenterZ(),
+                        bdr.getSize(),
+                        bdr.getMaxRadius(),
+                        bdr.getBoundNorth(),
+                        bdr.getBoundEast(),
+                        bdr.getBoundSouth(),
+                        bdr.getBoundWest()
+                ).getBytes();
+            }
+
+            case WORLD_GET_ENTITY_TYPES: {
+                return Utils.formatRegEntrySetInfo(
+                        client.getServer().getRegistryManager().get(RegistryKeys.ENTITY_TYPE)
+                ).getBytes();
+            }
+
+            case WORLD_GET_ENTITY: {
+                var entity = client.world.getEntityById(args.getInt());
+                if(entity==null){
+                    return null;
+                }
+                return Utils.formatEntityInfo(entity).getBytes();
+            }
+
+            case WORLD_GET_ENTITY_BY_TYPE: {
+                short n = args.getShort();
+                ArrayList<Optional<EntityType<?>>> type_arr = new ArrayList<>();
+                for(short i=0; i<n; i++){
+                    String s = Utils.readArgString(args);
+                    var t = EntityType.get(s);
+                    type_arr.add(t);
+                }
+                if (type_arr.size() == 0) {
+                    return new byte[]{};
+                }
+
+                double max = args.getDouble();
+
+                if (max <= 0.0) {
+                    max = client.world.getWorldBorder().getSize();
+                }
+
+                ArrayList<String> ret = new ArrayList<>();
+                for (var t : type_arr) {
+                    var entities = client.world.getEntitiesByType(t.get(), Box.of(client.player.getPos(), max, max, max), m -> true);
+                    if (entities == null) {
+                        continue;
+                    }
+                    for (Entity entity : entities) {
+                        ret.add(Utils.formatEntityInfo(entity));
+                    }
+                }
+                return String.join("|", ret).getBytes();
+            }
+
+            case WORLD_GET_BLOCK_REGISTRY:{
+                return Utils.formatRegEntrySetInfo(
+                        client.getServer().getRegistryManager().get(RegistryKeys.BLOCK)
+                ).getBytes();
+            }
+
+            case WORLD_GET_BLOCK_TYPES: {
+                return Utils.formatRegEntrySetInfo(
+                        client.getServer().getRegistryManager().get(RegistryKeys.BLOCK_TYPE)
+                ).getBytes();
+            }
+
+            case WORLD_GET_BLOCK_ENTITY_TYPES:{
+                return Utils.formatRegEntrySetInfo(
+                        client.getServer().getRegistryManager().get(RegistryKeys.BLOCK_ENTITY_TYPE)
+                ).getBytes();
+            }
+
+            case WORLD_GET_INFO: {
+                return client.world.toString().getBytes();
+            }
+
+            case WORLD_GET_IS_RAINING: {
+                return client.world.isRaining()?Constants.Y:Constants.N;
+            }
+
+            case WORLD_GET_IS_DAY: {
+                return client.world.isDay()?Constants.Y:Constants.N;
+            }
+
+            case WORLD_GET_TIME: {
+                return ByteBuffer.allocate(8)
+                        .order(ByteOrder.LITTLE_ENDIAN)
+                        .putLong(client.world.getTime()).array();
             }
 
             case GET_GAME_MODE:{

@@ -9,6 +9,7 @@ import net.minecraft.entity.EntityType;
 import net.minecraft.item.ItemStack;
 import net.minecraft.registry.Registries;
 import net.minecraft.registry.RegistryKey;
+import net.minecraft.registry.RegistryKeys;
 import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.text.Text;
 import net.minecraft.util.Hand;
@@ -141,22 +142,24 @@ public class ServerHandler extends CommandHandler {
                 return Globals.server.getVersion().getBytes();
             }
 
+            case WORLD_GET_NAME:{
+                if(Globals.world!=null) {
+                    return Globals.world.getRegistryKey().getValue().getPath().getBytes();
+                }
+            }
+
             case WORLD_GET_BLOCK: {
                 var block_state = Globals.world.getBlockState(new BlockPos(args.getInt(), args.getInt(), args.getInt()));
                 if(block_state==null){
                     return null;
                 }
-                var block = block_state.getBlock();
-                if(block != null) {
-                    return Utils.formatBlockInfo(block).getBytes();
-                }
-                break;
+                return Utils.formatBlockInfo(block_state).getBytes();
             }
 
             case WORLD_SET_BLOCK: {
                 var pos = new BlockPos(args.getInt(), args.getInt(), args.getInt());
                 String t = Utils.readArgString(args);
-                var bt = Registries.BLOCK.get(Identifier.tryParse(t));
+                var bt = Globals.server.getRegistryManager().get(RegistryKeys.BLOCK).get(Identifier.tryParse(t));
                 if(bt!=null) {
                    if(Globals.world.setBlockState(pos, bt.getDefaultState())) {
                        return Constants.OK;
@@ -182,8 +185,7 @@ public class ServerHandler extends CommandHandler {
                 }
                 ArrayList<String> ret = new ArrayList<>();
                 for(var bs: blocks.toList()) {
-                    var block = bs.getBlock();
-                    ret.add(Utils.formatBlockInfo(block));
+                    ret.add(Utils.formatBlockInfo(bs));
                 }
                 return String.join("|", ret).getBytes();
             }
@@ -192,7 +194,7 @@ public class ServerHandler extends CommandHandler {
                 var pos0 = new BlockPos(args.getInt(), args.getInt(), args.getInt());
                 var pos1 = new BlockPos(args.getInt(), args.getInt(), args.getInt());
                 String t = Utils.readArgString(args);
-                var bt = Registries.BLOCK.get(Identifier.tryParse(t));
+                var bt = Globals.server.getRegistryManager().get(RegistryKeys.BLOCK).get(Identifier.tryParse(t));
                 int counter = 0;
                 if(bt!=null) {
                     var d_st = bt.getDefaultState();
@@ -234,11 +236,9 @@ public class ServerHandler extends CommandHandler {
             }
 
             case WORLD_GET_ENTITY_TYPES: {
-                ArrayList<String> ret = new ArrayList<>();
-                for (EntityType<?> entityType : Registries.ENTITY_TYPE) {
-                    ret.add(String.format("%s,%s", entityType.getUntranslatedName(), (entityType.isSummonable()?"1":"0")));
-                }
-                return String.join("|", ret).getBytes();
+                return Utils.formatRegEntrySetInfo(
+                        Globals.server.getRegistryManager().get(RegistryKeys.ENTITY_TYPE)
+                ).getBytes();
             }
 
             case WORLD_GET_ENTITY: {
@@ -340,12 +340,22 @@ public class ServerHandler extends CommandHandler {
                 return String.valueOf(count).getBytes();
             }
 
+            case WORLD_GET_BLOCK_REGISTRY:{
+                return Utils.formatRegEntrySetInfo(
+                        Globals.server.getRegistryManager().get(RegistryKeys.BLOCK)
+                ).getBytes();
+            }
+
             case WORLD_GET_BLOCK_TYPES: {
-                ArrayList<String> ret = new ArrayList<>();
-                for (var b : Registries.BLOCK) {
-                    ret.add(Utils.formatBlockInfo(b));
-                }
-                return String.join("|", ret).getBytes();
+                return Utils.formatRegEntrySetInfo(
+                        Globals.server.getRegistryManager().get(RegistryKeys.BLOCK_TYPE)
+                ).getBytes();
+            }
+
+            case WORLD_GET_BLOCK_ENTITY_TYPES:{
+                return Utils.formatRegEntrySetInfo(
+                        Globals.server.getRegistryManager().get(RegistryKeys.BLOCK_ENTITY_TYPE)
+                ).getBytes();
             }
 
             case WORLD_GET_INFO: {

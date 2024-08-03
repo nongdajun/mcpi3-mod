@@ -12,12 +12,12 @@ public interface MinecraftClientAccessor {
     void setItemUseCooldown(int itemUseCooldown);
 
     @Invoker("doAttack")
-    boolean doAttack();
+    boolean _doAttack();
 
     @Invoker("doItemUse")
-    void doItemUse();
+    void _doItemUse();
 
     @Invoker("doItemPick")
-    void doItemPick();
+    void _doItemPick();
 
 }
