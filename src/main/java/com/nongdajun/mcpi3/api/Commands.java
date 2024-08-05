@@ -137,7 +137,10 @@ public final class Commands {
         GET_GAME_MODE,
         GET_GAME_VERSION,
         GET_CLIENT_VERSION,
-    }
+
+        SEND_MESSAGE,
+        EXECUTE_COMMAND,
+   }
 
     private static Common[] _CommonSet = Common.values();
     private static Server[] _ServerSet = Server.values();

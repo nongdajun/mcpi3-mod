@@ -506,6 +506,17 @@ public class ClientHandler implements ICommandHandler {
                 return client.getGameVersion().getBytes();
             }
 
+            case SEND_MESSAGE:{
+                client.player.sendMessage(Text.of(Utils.readArgString(args)));
+                break;
+            }
+
+            case EXECUTE_COMMAND:{
+                var src = client.getServer().getCommandSource();
+                client.getServer().getCommandManager().executeWithPrefix(src, Utils.readArgString(args));
+                break;
+            }
+
             default:
                 return Constants.ERR_UNKNOWN_COMMAND;
         }
